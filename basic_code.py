@@ -7,7 +7,7 @@ Created on Mon Feb 13 14:24:01 2023
 import numpy as np
 
 class Environment:
-    def __init__(env):
+    def __init__(self, env):
         self.env = env
     
     def perceived_wind(self, raw_wind, curr_loc):
@@ -55,7 +55,7 @@ class Environment:
     
     def path_cost(self, start_loc, moves, all_wind):
         total_cost = 0
-        curr_loc = start_loc
+        curr_loc = np.copy(start_loc)
         for m in moves:
             total_cost += self.one_step_cost(curr_loc, m, all_wind)
             curr_loc = curr_loc + m
