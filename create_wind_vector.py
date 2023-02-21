@@ -17,7 +17,7 @@ def create_wind_vector(grid_size, gamma):
     dists = np.zeros((len(locs), len(locs)))
     for i, x1 in enumerate(locs):
         for j, x2 in enumerate(locs):
-            dists[i,j] = np.sqrt(np.sum(np.square(x1 - x2))) # np.sum(np.abs(x1 - x2))
+            dists[i,j] = np.linalg.norm(x1 - x2) # np.sum(np.abs(x1 - x2))
             # print('x1', x1, 'x2', x2, 'dists[i,j]', dists[i,j])        
     cov = np.exp(-gamma * np.square(dists))
      
