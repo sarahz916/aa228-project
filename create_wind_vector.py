@@ -1,5 +1,6 @@
 import numpy as np 
 import matplotlib.pyplot as plt
+from basic_code import get_colors, set_colorbar
 
 plt.close('all')
 
@@ -9,16 +10,11 @@ def create_wind_vector(grid_size, gamma):
     # List all cells by index
     locs = np.transpose(np.where(W[:,:,0] == 0))
         
-    # reshaped = np.reshape(np.arange(len(locs)), grid_size)
-    # print('locs', locs)
-    # print('reshaped', reshaped)
-    
     # Compute the distance between all cells (ignoring obstacles)
     dists = np.zeros((len(locs), len(locs)))
     for i, x1 in enumerate(locs):
         for j, x2 in enumerate(locs):
-            dists[i,j] = np.linalg.norm(x1 - x2) # np.sum(np.abs(x1 - x2))
-            # print('x1', x1, 'x2', x2, 'dists[i,j]', dists[i,j])        
+            dists[i,j] = np.linalg.norm(x1 - x2)
     cov = np.exp(-gamma * np.square(dists))
      
     for k in range(2):
@@ -32,16 +28,36 @@ def plot_wind_vector(W, ax=None, **kwargs):
     if ax is None:
         fig, ax = plt.subplots()
     
-    ind_0 = np.arange(0, W.shape[0])
-    ind_1 = np.arange(0, W.shape[1]) 
-    loc_0, loc_1 = np.meshgrid(ind_0, ind_1)
-
-    ax.quiver(loc_0, loc_1, W[:,:,0], W[:,:,1], **kwargs)
+    x_vals = np.arange(0, W.shape[0])
+    y_vals = np.arange(0, W.shape[1]) 
+    X, Y = np.meshgrid(x_vals, y_vals)
+    X = X.T
+    Y = Y.T
+    # It should now be the case that X[i,j] = i, Y[i,j] = Y
+    # Hence for given i,j:
+    # X[i,j] = i, Y[i,j] = Y, W[i,j,0] = wx[i,j], W[i,j,1] = wy[i,j]
+    
+    ax.quiver(X, Y, W[:,:,0], W[:,:,1], angles='xy', scale_units='xy', scale=1, **kwargs)
+    ax.axis('equal')
     
     return ax
 
 if __name__ == '__main__':
-    grid_size = (10, 10)
+    # n, m (# x vals, # y vals)
+    grid_size = (10, 15)
     W, dists, locs = create_wind_vector(grid_size, 0.1) 
-    plot_wind_vector(W, None, alpha=0.5, color='grey')
+    wind_speeds = np.linalg.norm(W, axis=2)
+    
+    # View: Index into W, wind_speeds as W[x,y] with 0,0 being bottom left
+    
+    # Can verify that the wind speeds plot is correct by looking at max speed
+    # np.unravel_index(np.argmax(wind_speeds), wind_speeds.shape)    
+    fig, ax = plt.subplots()
+    plt.imshow(wind_speeds.T) # transpose because imshow expects y first
+    ax.invert_yaxis()
+    plt.title('Wind Speeds')
+    plt.colorbar()
+    plt.show()
+    
+    plot_wind_vector(W, ax, alpha=0.5, color='black')
     
