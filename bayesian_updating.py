@@ -27,6 +27,7 @@ def cond_gaussian(b, mu_a, mu_b, A, B, C):
 # old_locs = like new_locs but for previous wind measurements
 # Outputs:
 # new_dist = new gamma discretized beliefs in log-space
+# QUESITON: what is the difference between new and old measurements?
 def update_gamma_dist(gamma_vals, curr_dist, new_wind_meas, new_locs, old_wind_meas=None, old_locs=None):    
     have_prev_meas = old_wind_meas is not None and old_locs is not None
     
@@ -219,7 +220,7 @@ if __name__ == '__main__':
         # Try single-shot posterior updating
         new_locs = locs[:i+1]
         new_wind_meas = all_wind_meas[:i+1,:]
-        new_dist = update_gamma_dist(gamma_vals, gamma_dist, new_wind_meas, new_locs)
+        new_dist = update_gamma_dist(gamma_vals, gamma_dist, new_wind_meas, new_locs) # QUESTION: NOT NEEDED?
     
         # Try recursive posterior updating
         new_dist_rec = update_gamma_dist(gamma_vals, new_dist_rec, 

@@ -37,10 +37,13 @@ class Environment:
         # Set to True if want buildings to block the wind else False
         self.buildings_block = buildings_block
         
-    def perceived_wind(self, raw_wind, curr_loc):
+    def perceived_wind(self, all_wind, curr_loc):
         # Find out if there are buildings adjacent to current location
         curr_x, curr_y = curr_loc
+        raw_wind = all_wind[curr_x, curr_y]
         p_w = raw_wind
+        if self.buildings_block == False:
+            return p_w
         n, m = self.occ.shape
     
         if curr_x - 1 >= 0 and self.occ[curr_x - 1, curr_y] == 1:
@@ -80,10 +83,7 @@ class Environment:
         return p_w
     
     def one_step_cost(self, curr_loc, move, all_wind):
-        if self.buildings_block:
-            p_w = self.perceived_wind(all_wind[tuple(curr_loc)], curr_loc)
-        else:
-            p_w = all_wind[tuple(curr_loc)]
+        p_w = self.perceived_wind(all_wind, curr_loc)
         wind_cost = -np.inner(p_w, move)
         cost = max(self.min_cost, self.base_cost + wind_cost)
         return cost
