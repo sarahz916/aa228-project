@@ -42,22 +42,28 @@ def plot_wind_vector(W, ax=None, **kwargs):
     
     return ax
 
+def plot_wind_vector_and_speeds(W, ax=None, **kwargs):
+    # Can verify that the wind speeds plot is correct by looking at max speed
+    # np.unravel_index(np.argmax(wind_speeds), wind_speeds.shape)    
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    wind_speeds = np.linalg.norm(W, axis=2)
+    
+    img = ax.imshow(wind_speeds.T) # transpose because imshow expects y first
+    ax.invert_yaxis()
+    ax.set_title('Wind Speeds')
+    plt.colorbar(img, ax=ax)
+    
+    plot_wind_vector(W, ax, **kwargs)
+    
+    return ax, wind_speeds
+
 if __name__ == '__main__':
     # n, m (# x vals, # y vals)
     grid_size = (10, 15)
     W, dists, locs = create_wind_vector(grid_size, 0.1) 
-    wind_speeds = np.linalg.norm(W, axis=2)
     
     # View: Index into W, wind_speeds as W[x,y] with 0,0 being bottom left
     
-    # Can verify that the wind speeds plot is correct by looking at max speed
-    # np.unravel_index(np.argmax(wind_speeds), wind_speeds.shape)    
-    fig, ax = plt.subplots()
-    plt.imshow(wind_speeds.T) # transpose because imshow expects y first
-    ax.invert_yaxis()
-    plt.title('Wind Speeds')
-    plt.colorbar()
-    plt.show()
-    
-    plot_wind_vector(W, ax, alpha=0.5, color='black')
-    
+    plot_wind_vector_and_speeds(W, None, alpha=0.5, color='black')
