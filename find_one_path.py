@@ -4,7 +4,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import shortest_path
 from env_gen import vis_path, vis_map, create_feasible_occ
 from create_wind_vector import create_wind_vector, plot_wind_vector
-from basic_code import Environment, get_colors, set_colorbar
+from env import Environment, get_colors, set_colorbar
 
 def path_to_moves(path):
     moves = np.array(path)
