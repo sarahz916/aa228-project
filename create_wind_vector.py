@@ -38,7 +38,8 @@ def plot_wind_vector(W, ax=None, **kwargs):
     # X[i,j] = i, Y[i,j] = Y, W[i,j,0] = wx[i,j], W[i,j,1] = wy[i,j]
     
     ax.quiver(X, Y, W[:,:,0], W[:,:,1], angles='xy', scale_units='xy', scale=1, **kwargs)
-    # ax.axis('equal')
+    # Needed to ensure that the arrows actually render with correct aspect ratios
+    ax.axis('equal')
     
     return ax
 
@@ -62,10 +63,10 @@ def plot_wind_vector_and_speeds(W, ax=None, **kwargs):
 if __name__ == '__main__':
     # n, m (# x vals, # y vals)
     grid_size = (10, 15)
-    gamma = 0
+    gamma = 0.1
     W, dists, locs = create_wind_vector(grid_size, gamma) 
     
     # View: Index into W, wind_speeds as W[x,y] with 0,0 being bottom left
     
     plot_wind_vector_and_speeds(W, None, alpha=0.5, color='black')
-    plt.title("gamma = " + str(gamma))
+    plt.title(r'$\gamma$ = ' + str(gamma))

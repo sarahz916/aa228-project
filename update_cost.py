@@ -77,7 +77,7 @@ def plot_solver():
         
     plt.legend(loc='best')
     plot_wind_vector(W, ax, alpha=0.5, color='black')
-    plt.title("gamma = " + str(gamma))
+    plt.title(r"$\gamma$ = " + str(gamma))
         
 ### Plot gamma code
 def plot_gammas():

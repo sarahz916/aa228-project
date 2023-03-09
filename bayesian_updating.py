@@ -98,7 +98,19 @@ def update_gamma_dist(gamma_vals, curr_dist, new_wind_meas, new_locs, old_wind_m
 def belief_to_dist(belief):
     """Convert from a log-space belief to a normalized probability distribution."""
     temp = np.exp(belief)
-    return temp / np.sum(temp)
+    den = np.sum(temp)
+    
+    prob = temp / den
+    
+    # If belief becomes extremely concentrated around one value just return
+    # dirac distribution because of numerical precision
+    if np.any(np.isnan(prob)) or np.any(np.isinf(prob)):
+        print('hi')
+        temp = np.zeros(len(belief))
+        temp[np.argmax(belief)] = 1
+        return temp
+    
+    return prob
 
 def get_hidden_locs(grid_size, meas_locs):
     """Find what locations are not measured in a grid."""
