@@ -110,6 +110,8 @@ def vis_map(occ, ax=None):
         ax.set_xlim(0, occ.shape[0])
         ax.set_ylim(0, occ.shape[1])
 
+    ax.grid(True)
+
     return ax
 
 if __name__ == '__main__':
