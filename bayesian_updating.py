@@ -50,7 +50,7 @@ def update_gamma_dist(gamma_vals, curr_dist, new_wind_meas, new_locs, old_wind_m
         # multiply the two corresponding x, y pdfs
         for j in range(2):
             # Handle missing arguments
-            if new_wind_meas[:,j] == None:
+            if new_wind_meas[:,j] is None:
                 continue
             if have_prev_meas:
                 # Find the conditional gaussian distribution p(* | b, gamma)
@@ -97,6 +97,79 @@ def update_gamma_dist(gamma_vals, curr_dist, new_wind_meas, new_locs, old_wind_m
     
     return new_dist
 
+def update_gamma_dist_1d(gamma_vals, curr_dist, new_wind_meas, new_locs, old_wind_meas=None, old_locs=None):    
+    have_prev_meas = False
+    if old_wind_meas is not None and old_locs is not None:
+        if len(old_wind_meas) > 0:
+            have_prev_meas = True
+    
+    if have_prev_meas:
+        locs = np.vstack([new_locs, old_locs])
+    else:
+        locs = np.copy(new_locs)
+        
+    # Compute the distance between cells (ignoring obstacles)
+    dists = np.zeros((len(locs), len(locs)))
+    for i, x1 in enumerate(locs):
+        for j, x2 in enumerate(locs):
+            dists[i,j] = np.linalg.norm(x1 - x2)
+    
+    new_dist = np.copy(curr_dist)    
+    
+    for i, gamma in enumerate(gamma_vals):
+        cov = np.exp(-gamma * np.square(dists))
+
+        # Assume the x and y wind directions are independent so can just
+        # multiply the two corresponding x, y pdfs
+
+        # Handle missing arguments
+        if new_wind_meas is None:
+            continue
+        if have_prev_meas:
+            # Find the conditional gaussian distribution p(* | b, gamma)
+            a_len = len(new_wind_meas)
+            b_len = len(old_wind_meas)
+            mu_a = np.zeros(a_len)
+            mu_b = np.zeros(b_len)
+            A = cov[:a_len, :a_len] # upper left block
+            B = cov[a_len:, a_len:] # lower right block
+            C = cov[:a_len, a_len:] # upper right block
+            b = old_wind_meas
+            mu, sigma = cond_gaussian(b, mu_a, mu_b, A, B, C)
+            
+        else:
+            mu = np.zeros(len(new_wind_meas))
+            sigma = cov
+                
+            # For numerical reasons, clip the minimum value to 0
+            # sigma = np.clip(sigma, 0, np.inf)
+            
+        # For numerical reasons, round to nearest PSD matrix
+        sigma = roundPSD(sigma)
+            
+        a = new_wind_meas
+        # Evaluate p(* | b, gamma) at the given a, works if b is empty too
+        # Work in log-space
+        # Note: Have to allow_singular=True for larger matrices to make
+        # this work because of numerical issues
+        cond_prob = multivariate_normal(mu, sigma, allow_singular=True).logpdf(a)
+            
+        # Compute updated likelihood 
+        # p(b_tot = (a, b) | gamma) = p(a | b, gamma) * p(b | gamma)
+        # We assume p(b | gamma) is stored in curr_dist so just multiply
+        # by the new factor. Add when working in log space
+        new_dist[i] += cond_prob
+    
+    # Note: Since working with log-probabilities and belief no longer normalize
+    # Normalize new_dist to get the posterior 
+    # (implicitly assumes a uniform prior on gamma) 
+    # p(gamma | b_tot) = p(b_tot | gamma) * p(gamma) / p(b) \propto p(b_tot | gamma)  
+    # assuming p(gamma) uniform
+    # So we just compute p(b_tot | gamma) above then normalize  
+    # new_dist /= np.sum(new_dist)
+    
+    return new_dist
+
 def belief_to_dist(belief):
     """Convert from a log-space belief to a normalized probability distribution."""
     temp = np.exp(belief)
@@ -122,8 +195,7 @@ def get_hidden_locs(grid_size, meas_locs):
     return hidden_locs
 
 def sample_posterior_wind_vector(grid_size, gamma_vals, gamma_belief, 
-                                 num_gamma, num_draws, wind_meas=None, meas_locs=None, 
-                                 wind_signs=None, sign_locs = None):
+                                 num_gamma, num_draws, wind_meas=None, meas_locs=None):
     """Given wind measurements and a gamma distribution, sample wind fields from the posterior."""
     have_prev_meas = wind_meas is not None and meas_locs is not None
         
@@ -204,13 +276,101 @@ def sample_posterior_wind_vector(grid_size, gamma_vals, gamma_belief,
                 if wind_meas[k ,j] == None:
                     continue
                 temp[:, meas_locs[k,0], meas_locs[k,1]] = wind_meas[k, j]
-                
-            for k in range(len(sign_locs)):
-                for d in range(num_draws):
-                    if np.sign(temp[d, sign_locs[k,0], sign_locs[k,1]]) != wind_signs[k, j]:
-                        # if sign does not match, flip it
-                        temp[d, sign_locs[k,0], sign_locs[k,1]] = - temp[d, sign_locs[k,0], sign_locs[k,1]]
                     
+            
+                
+    return gamma_draws, W_draws
+
+def sample_posterior_wind_vector_1d(grid_size, gamma_vals, gamma_belief, 
+                                 num_gamma, num_draws, wind_meas=None, meas_locs=None, 
+                                 wind_signs=None, sign_locs = None, gamma_draws = None):
+    """Given wind measurements and a gamma distribution, sample wind fields from the posterior."""
+    have_prev_meas = False
+    if wind_meas is not None and meas_locs is not None:
+        if len(wind_meas) > 0:
+            have_prev_meas = True
+    
+    # List all cells by index
+    hidden_locs = get_hidden_locs(grid_size, meas_locs)
+    
+    # Draw gamma samples from gamma_dist
+    if gamma_draws is None:
+        gamma_draws = np.random.choice(gamma_vals, num_gamma, p=belief_to_dist(gamma_belief), replace=True)
+        
+    if not len(hidden_locs):
+        print("Posterior sampling is silly. All locations are measured.")
+        W_draws = np.zeros((num_gamma, num_draws, grid_size[0], grid_size[1], 2))
+        
+        # TODO: Do in a single-step
+        for k in range(len(meas_locs)):
+            W_draws[:, :, meas_locs[k,0], meas_locs[k,1], :] = wind_meas[k,:]
+                
+        return gamma_draws, W_draws
+    
+    if have_prev_meas:
+        locs = np.vstack([hidden_locs, meas_locs])
+    else:
+        locs = hidden_locs
+    
+    # Compute the distance between all cells (ignoring obstacles)
+    dists = np.zeros((len(locs), len(locs)))
+    for i, x1 in enumerate(locs):
+        for j, x2 in enumerate(locs):
+            dists[i,j] = np.linalg.norm(x1 - x2)
+            
+    W_draws = np.zeros((num_gamma, num_draws, grid_size[0], grid_size[1], 1))
+    
+    for i, gamma in enumerate(gamma_draws):
+        cov = np.exp(-gamma * np.square(dists))
+        if have_prev_meas:
+            # Find the conditional gaussian distribution p(* | b, gamma)
+            a_len = len(hidden_locs)
+            b_len = len(meas_locs)
+            mu_a = np.zeros(a_len)
+            mu_b = np.zeros(b_len)
+            A = cov[:a_len, :a_len] # upper left block
+            B = cov[a_len:, a_len:] # lower right block
+            C = cov[:a_len, a_len:] # upper right block
+            b = wind_meas
+            mu, sigma = cond_gaussian(b, mu_a, mu_b, A, B, C)
+            
+        else:
+            mu = np.zeros(len(locs))
+            sigma = cov
+
+            # For numerical reasons, clip the minimum value to 0
+            # sigma = np.clip(sigma, 0, np.inf)
+
+        # For numerical reasons, round to nearest PSD matrix
+        sigma = roundPSD(sigma)
+
+        # These are draws for the hidden locations num_draws x a_len              
+        comp_draws = multivariate_normal(mu, sigma, allow_singular=True).rvs(size=num_draws)
+              
+        # To handle edge cases like num_draws = 1, or only have 1 hidden location
+        while len(comp_draws.shape) < 2:
+            comp_draws = np.expand_dims(comp_draws, axis=0)
+        
+        temp = W_draws[i, :, :, :,0] # num_draws x grid_size[0] x grid_size[1]
+        
+        for k in range(len(hidden_locs)):
+            try:
+                temp[:, hidden_locs[k,0], hidden_locs[k,1]] = comp_draws[:, k]
+            except:
+                print('comp_draws', comp_draws)
+                print('hidden_locs[k]', hidden_locs[k])
+                
+        for k in range(len(meas_locs)):
+            if wind_meas[k] == None:
+                continue
+            temp[:, meas_locs[k,0], meas_locs[k,1]] = wind_meas[k]
+        
+        for k in range(len(sign_locs)):
+            for d in range(num_draws):
+                if np.sign(temp[d, sign_locs[k,0], sign_locs[k,1]]) != wind_signs[k]:
+                    # if sign does not match, flip it
+                    temp[d, sign_locs[k,0], sign_locs[k,1]] = - temp[d, sign_locs[k,0], sign_locs[k,1]]
+                
             
                 
     return gamma_draws, W_draws

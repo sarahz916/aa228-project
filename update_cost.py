@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from bayesian_updating import update_gamma_dist, sample_posterior_wind_vector
+from bayesian_updating import update_gamma_dist_1d, sample_posterior_wind_vector,\
+    sample_posterior_wind_vector_1d
 from env import Environment, get_colors, set_colorbar
 from env_gen import vis_path, vis_map, create_feasible_occ
 from create_wind_vector import create_wind_vector, plot_wind_vector
@@ -27,33 +28,50 @@ def plot_solver():
     num_gamma = 10
     num_draws = 10
     
-    old_locs = []
-    old_wind_meas = []
-    sign_locs = []
-    wind_signs = []
+    old_locs_x = []
+    old_locs_y = []
+    old_wind_meas_x = []
+    old_wind_meas_y = []
+    sign_locs_x = []
+    sign_locs_y = []
+    wind_signs_x = []
+    wind_signs_y = []
     # take measurement 
     curr_loc = start_loc
     traj = [start_loc]
     while (curr_loc != goal_loc).any():
         new_wind_meas_x, sign_x = env.perceived_wind_x(W, curr_loc)
         new_wind_meas_y, sign_y = env.perceived_wind_y(W, curr_loc)
-        new_wind_meas = np.array([new_wind_meas_x, new_wind_meas_y])
+
+        if new_wind_meas_x != None:
+            new_dist_rec = update_gamma_dist_1d(gamma_vals, prior_dist, 
+                                             np.expand_dims(new_wind_meas_x, axis=0), [curr_loc],
+                                             old_wind_meas_x, old_locs_x) 
+            old_locs_x.append(curr_loc)
+            old_wind_meas_x.append(new_wind_meas_x)
+        elif sign_x != 0:
+            sign_locs_x.append(curr_loc)
+            wind_signs_x.append(sign_x)
+            
+        if new_wind_meas_y != None:
+            new_dist_rec = update_gamma_dist_1d(gamma_vals, prior_dist, 
+                                             np.expand_dims(new_wind_meas_y, axis=0), [curr_loc],
+                                             old_wind_meas_y, old_locs_y) 
+            old_locs_y.append(curr_loc)
+            old_wind_meas_y.append(new_wind_meas_y)
+        elif sign_y != 0:
+            sign_locs_y.append(curr_loc)
+            wind_signs_y.append(sign_y)
         
-        new_dist_rec = update_gamma_dist(gamma_vals, prior_dist, 
-                                         np.expand_dims(new_wind_meas, axis=0), [curr_loc]) # TODO: add old meas
+        gamma_draws, W_draws_x = sample_posterior_wind_vector_1d(grid_size, gamma_vals, new_dist_rec, 
+                                         num_gamma, num_draws, np.array(old_wind_meas_x), 
+                                         np.array(old_locs_x), np.array(wind_signs_x), np.array(sign_locs_x))
+        _, W_draws_y = sample_posterior_wind_vector_1d(grid_size, gamma_vals, new_dist_rec, 
+                                         num_gamma, num_draws, np.array(old_wind_meas_y), 
+                                         np.array(old_locs_y), np.array(wind_signs_y), np.array(sign_locs_y),
+                                         gamma_draws = gamma_draws)
         
-        if new_wind_meas_x != None or new_wind_meas_y != None: # want to add some information
-            old_wind_meas.append(new_wind_meas)
-            old_locs.append(curr_loc)
-        if sign_x != 0 or sign_y != 0 and (new_wind_meas_x == None or new_wind_meas_y == None):
-            sign_locs.append(curr_loc)
-            wind_signs.append(np.array([sign_x, sign_y]))
-        
-        gamma_draws, W_draws = sample_posterior_wind_vector(grid_size, gamma_vals, new_dist_rec, 
-                                         num_gamma, num_draws, np.array(old_wind_meas), 
-                                         np.array(old_locs), np.array(wind_signs), np.array(sign_locs))
-        
-        
+        W_draws = np.concatenate((W_draws_x, W_draws_y), axis = 4)
         W_list = W_draws.reshape((-1, grid_size[0], grid_size[1], 2))
         feasible, path, avg_cost, path_costs = find_best_path(curr_loc, goal_loc, env, W_list)
         moves = path_to_moves(path)
