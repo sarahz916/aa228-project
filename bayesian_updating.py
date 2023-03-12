@@ -27,7 +27,6 @@ def cond_gaussian(b, mu_a, mu_b, A, B, C):
 # old_locs = like new_locs but for previous wind measurements
 # Outputs:
 # new_dist = new gamma discretized beliefs in log-space
-# QUESITON: what is the difference between new and old measurements?
 def update_gamma_dist(gamma_vals, curr_dist, new_wind_meas, new_locs, old_wind_meas=None, old_locs=None):    
     have_prev_meas = old_wind_meas is not None and old_locs is not None
     
@@ -105,7 +104,6 @@ def belief_to_dist(belief):
     # If belief becomes extremely concentrated around one value just return
     # dirac distribution because of numerical precision
     if np.any(np.isnan(prob)) or np.any(np.isinf(prob)):
-        print('hi')
         temp = np.zeros(len(belief))
         temp[np.argmax(belief)] = 1
         return temp
@@ -232,7 +230,7 @@ if __name__ == '__main__':
         # Try single-shot posterior updating
         new_locs = locs[:i+1]
         new_wind_meas = all_wind_meas[:i+1,:]
-        new_dist = update_gamma_dist(gamma_vals, gamma_dist, new_wind_meas, new_locs) # QUESTION: NOT NEEDED?
+        new_dist = update_gamma_dist(gamma_vals, gamma_dist, new_wind_meas, new_locs)
     
         # Try recursive posterior updating
         new_dist_rec = update_gamma_dist(gamma_vals, new_dist_rec, 
@@ -257,12 +255,12 @@ if __name__ == '__main__':
             ax, _ = plot_wind_vector_and_speeds(W_avg, alpha=0.5, color='black')
             ax.set_title('Average Wind Field with ' + str(i+1) + ' Measurements')
             
-        if i > 0:
-            old_locs = np.vstack([old_locs, new_locs[i]])
-            old_wind_meas = np.vstack([old_wind_meas, wind_meas])
-        else:
+        if i == 0:
             old_locs = np.expand_dims(new_locs[i], axis=0)
             old_wind_meas = np.expand_dims(wind_meas, axis=0)
+        else:
+            old_locs = np.vstack([old_locs, new_locs[i]])
+            old_wind_meas = np.vstack([old_wind_meas, wind_meas])            
      
 
 
