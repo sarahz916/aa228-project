@@ -48,7 +48,10 @@ def update_gamma_dist(gamma_vals, curr_dist, new_wind_meas, new_locs, old_wind_m
 
         # Assume the x and y wind directions are independent so can just
         # multiply the two corresponding x, y pdfs
-        for j in range(2):    
+        for j in range(2):
+            # Handle missing arguments
+            if new_wind_meas[:,j] == None:
+                continue
             if have_prev_meas:
                 # Find the conditional gaussian distribution p(* | b, gamma)
                 a_len = len(new_wind_meas)
@@ -119,7 +122,8 @@ def get_hidden_locs(grid_size, meas_locs):
     return hidden_locs
 
 def sample_posterior_wind_vector(grid_size, gamma_vals, gamma_belief, 
-                                 num_gamma, num_draws, wind_meas=None, meas_locs=None):
+                                 num_gamma, num_draws, wind_meas=None, meas_locs=None, 
+                                 wind_signs=None, sign_locs = None):
     """Given wind measurements and a gamma distribution, sample wind fields from the posterior."""
     have_prev_meas = wind_meas is not None and meas_locs is not None
         
@@ -158,21 +162,21 @@ def sample_posterior_wind_vector(grid_size, gamma_vals, gamma_belief,
         # Assume the x and y wind directions are independent so can just
         # multiply the two corresponding x, y pdfs
         for j in range(2):    
-            if have_prev_meas:
-                # Find the conditional gaussian distribution p(* | b, gamma)
-                a_len = len(hidden_locs)
-                b_len = len(meas_locs)
-                mu_a = np.zeros(a_len)
-                mu_b = np.zeros(b_len)
-                A = cov[:a_len, :a_len] # upper left block
-                B = cov[a_len:, a_len:] # lower right block
-                C = cov[:a_len, a_len:] # upper right block
-                b = wind_meas[:,j]
-                mu, sigma = cond_gaussian(b, mu_a, mu_b, A, B, C)
+            # if have_prev_meas:
+            #     # Find the conditional gaussian distribution p(* | b, gamma)
+            #     a_len = len(hidden_locs)
+            #     b_len = len(meas_locs)
+            #     mu_a = np.zeros(a_len)
+            #     mu_b = np.zeros(b_len)
+            #     A = cov[:a_len, :a_len] # upper left block
+            #     B = cov[a_len:, a_len:] # lower right block
+            #     C = cov[:a_len, a_len:] # upper right block
+            #     b = wind_meas[:,j]
+            #     mu, sigma = cond_gaussian(b, mu_a, mu_b, A, B, C)
                 
-            else:
-                mu = np.zeros(len(locs))
-                sigma = cov
+            # else:
+            mu = np.zeros(len(locs))
+            sigma = cov
     
                 # For numerical reasons, clip the minimum value to 0
                 # sigma = np.clip(sigma, 0, np.inf)
@@ -189,17 +193,26 @@ def sample_posterior_wind_vector(grid_size, gamma_vals, gamma_belief,
             
             temp = W_draws[i, :, :, :, j] # num_draws x grid_size[0] x grid_size[1]
             
-            # TODO: Do these operations in a single-step
-            for k in range(len(meas_locs)):
-                temp[:, meas_locs[k,0], meas_locs[k,1]] = wind_meas[k, j]
-                
-            for k in range(len(hidden_locs)):
+            for k in range(len(locs)):
                 try:
-                    temp[:, hidden_locs[k,0], hidden_locs[k,1]] = comp_draws[:, k]
+                    temp[:, locs[k,0], locs[k,1]] = comp_draws[:, k]
                 except:
                     print('comp_draws', comp_draws)
                     print('hidden_locs[k]', hidden_locs[k])
                     
+            for k in range(len(meas_locs)):
+                if wind_meas[k ,j] == None:
+                    continue
+                temp[:, meas_locs[k,0], meas_locs[k,1]] = wind_meas[k, j]
+                
+            for k in range(len(sign_locs)):
+                for d in range(num_draws):
+                    if np.sign(temp[d, sign_locs[k,0], sign_locs[k,1]]) != wind_signs[k, j]:
+                        # if sign does not match, flip it
+                        temp[d, sign_locs[k,0], sign_locs[k,1]] = - temp[d, sign_locs[k,0], sign_locs[k,1]]
+                    
+            
+                
     return gamma_draws, W_draws
 
 if __name__ == '__main__':

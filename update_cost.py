@@ -10,14 +10,13 @@ from find_one_path import find_best_path, path_to_moves, vis_path
 def plot_solver():
     start_loc = np.array([0, 0])
     grid_size = (10, 15)
-    goal_loc = np.hstack((np.random.randint(0, grid_size[0]),
-                          np.random.randint(0, grid_size[1])))
+    goal_loc = np.array([9, 14])
     n_obst = 5
     edge_size = 1
     gamma = 0.1
     
     feas_path, occ = create_feasible_occ(n_obst, grid_size, start_loc, goal_loc)
-    env = Environment(occ, 1, 0.1, buildings_block=False)  
+    env = Environment(occ, 1, 0.1, buildings_block=True)  
     W, dists, locs = create_wind_vector(grid_size, gamma) 
     num_disc = 50
     gamma_vals = np.linspace(0.01, 1, num_disc, endpoint=True)
@@ -27,22 +26,42 @@ def plot_solver():
     
     num_gamma = 10
     num_draws = 10
-    # TODO: need two measurements for meaning update 
+    
+    old_locs = []
+    old_wind_meas = []
+    sign_locs = []
+    wind_signs = []
     # take measurement 
     curr_loc = start_loc
     traj = [start_loc]
     while (curr_loc != goal_loc).any():
-        new_wind_meas = env.perceived_wind(W, curr_loc) # TODO: call raw wind and do without buildings
-        new_dist_rec = update_gamma_dist(gamma_vals, prior_dist, np.expand_dims(new_wind_meas, axis=0), [curr_loc])
+        new_wind_meas_x, sign_x = env.perceived_wind_x(W, curr_loc)
+        new_wind_meas_y, sign_y = env.perceived_wind_y(W, curr_loc)
+        new_wind_meas = np.array([new_wind_meas_x, new_wind_meas_y])
+        
+        new_dist_rec = update_gamma_dist(gamma_vals, prior_dist, 
+                                         np.expand_dims(new_wind_meas, axis=0), [curr_loc]) # TODO: add old meas
+        
+        if new_wind_meas_x != None or new_wind_meas_y != None: # want to add some information
+            old_wind_meas.append(new_wind_meas)
+            old_locs.append(curr_loc)
+        if sign_x != 0 or sign_y != 0 and (new_wind_meas_x == None or new_wind_meas_y == None):
+            sign_locs.append(curr_loc)
+            wind_signs.append(np.array([sign_x, sign_y]))
+        
         gamma_draws, W_draws = sample_posterior_wind_vector(grid_size, gamma_vals, new_dist_rec, 
-                                         num_gamma, num_draws, np.expand_dims(new_wind_meas, axis=0), np.expand_dims(curr_loc, axis=0))
+                                         num_gamma, num_draws, np.array(old_wind_meas), 
+                                         np.array(old_locs), np.array(wind_signs), np.array(sign_locs))
+        
+        
         W_list = W_draws.reshape((-1, grid_size[0], grid_size[1], 2))
-        W_avg = np.mean(W_list, axis=0)
         feasible, path, avg_cost, path_costs = find_best_path(curr_loc, goal_loc, env, W_list)
         moves = path_to_moves(path)
         next_loc = curr_loc + moves[0]
         traj.append(next_loc)
         curr_loc = next_loc
+        
+        
         
     traj = np.array(traj)
     
