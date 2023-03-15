@@ -41,7 +41,8 @@ class Environment:
         # Find out if there are buildings adjacent to current location
         curr_x, curr_y = curr_loc
         raw_wind = all_wind[curr_x, curr_y]
-        p_w = raw_wind
+        # important to copy so don't change the wind field itself
+        p_w = np.copy(raw_wind)
         if self.buildings_block == False:
             return p_w
         n, m = self.occ.shape
@@ -84,7 +85,6 @@ class Environment:
         else:
             return p_w_x, np.sign(p_w_x)
                 
-                
     def perceived_wind_y(self, all_wind, curr_loc):
         curr_x, curr_y = curr_loc
         raw_wind = all_wind[curr_x, curr_y]
@@ -106,7 +106,6 @@ class Environment:
         else:
             return p_w_y, np.sign(p_w_y)
         
-    
     def one_step_cost(self, curr_loc, move, all_wind):
         p_w = self.perceived_wind(all_wind, curr_loc)
         wind_cost = -np.inner(p_w, move)

@@ -55,7 +55,6 @@ def plot_wind_vector_and_speeds(W, ax=None, **kwargs):
     ax.invert_yaxis()
     ax.set_title('Wind Speeds')
     plt.colorbar(img, ax=ax)
-    
     plot_wind_vector(W, ax, **kwargs)
     
     return ax, wind_speeds
