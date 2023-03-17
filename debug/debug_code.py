@@ -1,6 +1,8 @@
 import numpy as np
-from receding_horizon_control import receding_horizon_plan
+import sys
 import pickle
+sys.path.insert(1, '..')
+from receding_horizon_control import receding_horizon_plan
 
 if __name__ == '__main__':
     start_loc = np.array([0, 0])
@@ -10,8 +12,8 @@ if __name__ == '__main__':
     edge_size = 1
     gamma = 0.1
     
-    env = pickle.load(open('debug/env_rev', 'rb'))
-    W = pickle.load(open('debug/W_rev', 'rb'))
+    env = pickle.load(open('env', 'rb'))
+    W = pickle.load(open('W', 'rb'))
     
     num_disc = 50
     num_gamma = 10
