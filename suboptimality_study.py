@@ -60,7 +60,7 @@ if __name__ == '__main__':
         return receding_horizon_plan(start_loc, goal_loc, W, gamma_vals, 
             prior_dist, env, num_gamma, num_draws)[0]
     
-    n_samples = 10
+    n_samples = 50
     gamma_range = np.linspace(0.01, 0.5, 10)
     feas_costs, actual_costs, best_costs = suboptimality_study(n_samples, 
                                             gamma_range, task_creator, planner)
@@ -72,12 +72,13 @@ if __name__ == '__main__':
     for i, name in enumerate(names):
         data = datasets[i] # should have shape (len(gamma_range), n_samples)
         medians = np.median(data, axis=1) # should have shape len(gamma_range)
-        quartiles = np.quantile(data, [0.25, 0.75], axis=1) # should have shape 2xN lower, upper
+        # quartiles = np.quantile(data, [0.25, 0.75], axis=1) # should have shape 2xN lower, upper
         # Make them offsets
-        offsets = np.copy(quartiles)
-        offsets[0,:] -= medians 
-        offsets[0,:] *= -1
-        offsets[1,:] -= medians
+        # offsets = np.copy(quartiles)
+        # offsets[0,:] -= medians 
+        # offsets[0,:] *= -1
+        # offsets[1,:] -= medians
+        offsets = np.std(data, axis=1) / np.sqrt(n_samples) 
         plt.errorbar(gamma_range, medians, yerr=offsets, label=name, capsize=10)
         
     plt.xlabel(r'$\gamma$')
